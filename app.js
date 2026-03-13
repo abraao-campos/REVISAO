@@ -1,6 +1,7 @@
 // ===============================================
 // ARQUIVO: app.js
-// Versão: 10.0 - CHAVE NOVA E PROJETO LIMPO
+// Projeto: CANTINHO DO ESTUDO
+// Versão: 11.0 - Estabilizada com v1 API
 // ===============================================
 
 const state = {
@@ -8,10 +9,13 @@ const state = {
     nivelEstudante: '',
     assuntoRevisao: '',
     currentQuestion: null,
-    // SUA NOVA CHAVE APLICADA AQUI:
-    GEMINI_API_KEY: 'AIzaSyBNrS-c7SHpdifjQir-qFBydNfg3q5eNuQ' 
+    // COLE SUA CHAVE NOVA EXATAMENTE DENTRO DAS ASPAS ABAIXO
+    GEMINI_API_KEY: 'AIzaSyBNrS-c7SHpdifjQir-qFBydNfg3q5eNuQ'.trim() 
 };
 
+/**
+ * Renderiza a interface com base no estado atual
+ */
 function render() {
     const app = document.getElementById('app');
     if (!app) return;
@@ -37,9 +41,9 @@ function render() {
     } 
     else if (state.stage === 'LOADING') {
         app.innerHTML = `
-            <div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-200 text-center">
+            <div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-200">
                 <div class="loader mb-6" style="border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-                <h2 class="text-xl font-bold text-gray-800 uppercase">Gerando questão com a nova chave...</h2>
+                <h2 class="text-xl font-bold text-gray-800 text-center uppercase">O Robô está pensando...</h2>
             </div>`;
     }
     else if (state.stage === 'QUIZ') {
@@ -67,11 +71,11 @@ function render() {
                     <div class="flex items-center mb-6 text-3xl font-black ${isCorrect ? 'text-green-600' : 'text-red-600'}">
                         <span>${isCorrect ? '✨' : '⚡'}</span> ${isCorrect ? 'Acertou!' : 'Quase lá!'}
                     </div>
-                    <p class="text-gray-700"><strong>Explicação:</strong> ${q.explicacao}</p>
+                    <p class="text-gray-700"><strong>Dica:</strong> ${q.explicacao}</p>
                 </div>
                 <div class="bg-indigo-600 text-white p-8 rounded-3xl shadow-xl">
-                    <h3 class="font-black text-indigo-200 mb-2 uppercase text-xs">📌 Resumo</h3>
-                    <p class="text-white text-lg font-medium">${q.resumo}</p>
+                    <h3 class="font-black text-indigo-200 mb-2 uppercase text-xs">📌 Resumo Pedagógico</h3>
+                    <p class="text-white text-lg font-medium leading-relaxed">${q.resumo}</p>
                 </div>
                 <div class="flex gap-4">
                     <button onclick="gerarQuestaoIA()" class="flex-1 bg-indigo-600 text-white font-black py-5 rounded-2xl hover:bg-indigo-700 transition-all">➕ NOVO</button>
@@ -81,43 +85,52 @@ function render() {
     }
 }
 
+/**
+ * Faz a chamada para a API do Google Gemini
+ */
 async function gerarQuestaoIA() {
     if (state.stage === 'START') {
         state.nivelEstudante = document.getElementById('nivel').value;
         state.assuntoRevisao = document.getElementById('assunto').value;
     }
     
-    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Preencha tudo! 🤖");
+    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Por favor, preencha o nível e o assunto! 🤖");
 
     state.stage = 'LOADING';
     render();
 
-    const prompt = `Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda estritamente neste formato JSON: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
+    const prompt = `Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda APENAS um JSON puro (sem markdown) seguindo este modelo: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
 
     try {
-        // Agora usamos o ID padrão que DEVE funcionar com a nova chave
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.GEMINI_API_KEY}`, {
+        // Usando o endpoint v1 estável para evitar erros de prévia
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${state.GEMINI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { 
-                    responseMimeType: "application/json" 
-                }
+                contents: [{ parts: [{ text: prompt }] }]
             })
         });
 
         const data = await response.json();
-        
-        if (!response.ok) throw new Error(data.error?.message || "Erro na API");
 
-        const textoRaw = data.candidates[0].content.parts[0].text;
-        state.currentQuestion = JSON.parse(textoRaw);
-        state.stage = 'QUIZ';
+        if (!response.ok) {
+            throw new Error(data.error?.message || "Ocorreu um erro na API.");
+        }
+
+        if (data.candidates && data.candidates[0].content.parts[0].text) {
+            let jsonString = data.candidates[0].content.parts[0].text;
+            // Limpa o texto caso a IA inclua blocos de código markdown
+            jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
+            
+            state.currentQuestion = JSON.parse(jsonString);
+            state.stage = 'QUIZ';
+        } else {
+            throw new Error("A IA não gerou uma resposta válida.");
+        }
         
     } catch (error) {
-        console.error("ERRO:", error);
-        alert(`Ainda temos um problema técnico: ${error.message}`);
+        console.error("Erro completo:", error);
+        alert(`Erro técnico: ${error.message}\n\nVerifique se sua chave está ativa no Google AI Studio.`);
         state.stage = 'START';
     }
     render();
@@ -134,9 +147,14 @@ function voltarInicio() {
     render();
 }
 
+// Inicia o app ao carregar o DOM
 document.addEventListener('DOMContentLoaded', render);
 
-// Adicionando o estilo da animação do loader
-const style = document.createElement('style');
-style.innerHTML = `@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } } .fade-in { animation: fadeIn 0.5s; } @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }`;
-document.head.appendChild(style);
+// Injeta estilos extras para o loader
+const styleTag = document.createElement('style');
+styleTag.innerHTML = `
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .fade-in { animation: fadeIn 0.4s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+`;
+document.head.appendChild(styleTag);
