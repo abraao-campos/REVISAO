@@ -1,6 +1,6 @@
 // ===============================================
 // ARQUIVO: app.js
-// Versão: 8.0 - Ajuste Específico (Modelos 3.1 e 3.0)
+// Versão: 9.0 - Edição "Force Model IDs"
 // ===============================================
 
 const state = {
@@ -8,7 +8,6 @@ const state = {
     nivelEstudante: '',
     assuntoRevisao: '',
     currentQuestion: null,
-    // Verifique se a chave abaixo é a mais recente gerada em "New Project"
     GEMINI_API_KEY: 'AIzaSyAyzWOfGynU44d8WfLnQaZXgzBK9LcMo-8' 
 };
 
@@ -30,7 +29,7 @@ function render() {
                         <input type="text" id="assunto" placeholder="Ex: Fotossíntese" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.assuntoRevisao}">
                     </div>
                     <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 text-lg">
-                        🤖 LANÇAR DESAFIO
+                        🤖 LANÇAR DESAFIO 3.1
                     </button>
                 </div>
             </div>`;
@@ -39,7 +38,7 @@ function render() {
         app.innerHTML = `
             <div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-200">
                 <div class="loader mb-6" style="border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-                <h2 class="text-xl font-bold text-gray-800 text-center uppercase">Consultando Gemini 3.1...</h2>
+                <h2 class="text-xl font-bold text-gray-800 text-center uppercase">Conectando ao Gemini 3.1...</h2>
             </div>`;
     }
     else if (state.stage === 'QUIZ') {
@@ -81,16 +80,21 @@ function render() {
     }
 }
 
-async function callAPI(modelName, prompt) {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${state.GEMINI_API_KEY}`, {
+async function callGemini(modelId, prompt) {
+    // Usando a versão v1beta que é necessária para os modelos Gemini 3.x
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${state.GEMINI_API_KEY}`;
+    
+    return fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" }
+            generationConfig: { 
+                responseMimeType: "application/json",
+                temperature: 0.8
+            }
         })
     });
-    return response;
 }
 
 async function gerarQuestaoIA() {
@@ -104,35 +108,35 @@ async function gerarQuestaoIA() {
     state.stage = 'LOADING';
     render();
 
-    const prompt = `Atue como professor. Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda APENAS um JSON: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
+    const prompt = `Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda estritamente neste formato JSON: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
 
     try {
-        // TENTATIVA 1: Gemini 3.1 Flash Lite
-        let response = await callAPI('gemini-3.1-flash-lite', prompt);
+        // TENTATIVA 1: O modelo que você tem mais cota (15)
+        let response = await callGemini('gemini-3.1-flash-lite-exp', prompt);
         
-        // TENTATIVA 2: Se falhar, tenta Gemini 3.0 Flash
+        // TENTATIVA 2: Se o acima der 404, tenta sem o "-exp"
         if (!response.ok) {
-            console.warn("Modelo 3.1 falhou, tentando 3.0...");
-            response = await callAPI('gemini-3-flash', prompt);
+            console.warn("Tentando 3.1 Flash Lite sem sufixo...");
+            response = await callGemini('gemini-3.1-flash-lite', prompt);
         }
 
-        // TENTATIVA 3: Se falhar, tenta Gemini 1.5 Flash (ID padrão de fallback)
+        // TENTATIVA 3: Se ainda falhar, tenta o Gemini 3 Flash (Cota 5)
         if (!response.ok) {
-            console.warn("Modelo 3.0 falhou, tentando 1.5 Flash...");
-            response = await callAPI('gemini-1.5-flash', prompt);
+            console.warn("Tentando Gemini 3 Flash...");
+            response = await callGemini('gemini-3-flash-exp', prompt);
         }
 
         const data = await response.json();
         
-        if (data.error) throw new Error(data.error.message);
+        if (!response.ok) throw new Error(data.error?.message || "Erro desconhecido na API");
 
-        const texto = data.candidates[0].content.parts[0].text;
-        state.currentQuestion = JSON.parse(texto);
+        const textoRaw = data.candidates[0].content.parts[0].text;
+        state.currentQuestion = JSON.parse(textoRaw);
         state.stage = 'QUIZ';
         
     } catch (error) {
-        console.error("Erro final:", error);
-        alert(`Não foi possível conectar: ${error.message}\n\nDica: Crie uma nova chave API em um "New Project" no Google AI Studio.`);
+        console.error("ERRO FINAL:", error);
+        alert(`O Google ainda não ativou esses modelos para sua chave: ${error.message}\n\nSOLUÇÃO: No Google AI Studio, clique em 'Get API Key' e depois em 'Create API Key in NEW project'.`);
         state.stage = 'START';
     }
     render();
