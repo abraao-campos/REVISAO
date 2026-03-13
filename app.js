@@ -1,6 +1,6 @@
 // ===============================================
 // ARQUIVO: app.js
-// FOCO: Gemini 3.1 Flash Lite (O único que aparece com cota 15 para você)
+// VERSÃO: 14.0 - Sincronizada com Modelo 3.1 Flash Lite
 // ===============================================
 
 const state = {
@@ -8,8 +8,32 @@ const state = {
     nivelEstudante: '',
     assuntoRevisao: '',
     currentQuestion: null,
+    // Verifique se esta chave é a que você criou hoje no "NEW PROJECT"
     GEMINI_API_KEY: 'AIzaSyBNrS-c7SHpdifjQir-qFBydNfg3q5eNuQ' 
 };
+
+// --- FUNÇÃO DE EXTRAÇÃO (Lógica do seu projeto funcional) ---
+function extractJsonBlock(text) {
+    // Tenta encontrar o bloco ```json { ... } ```
+    const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+    if (jsonMatch && jsonMatch[1]) {
+        try {
+            return JSON.parse(jsonMatch[1]);
+        } catch (e) {
+            console.error("Erro no parse do bloco JSON:", e);
+        }
+    }
+    // Fallback: Tenta encontrar qualquer coisa entre chaves { ... }
+    const fallbackMatch = text.match(/\{[\s\S]*\}/);
+    if (fallbackMatch) {
+        try {
+            return JSON.parse(fallbackMatch[0]);
+        } catch (e) {
+            throw new Error("A IA gerou a questão, mas o formato JSON é inválido.");
+        }
+    }
+    throw new Error("Não foi possível encontrar o formato JSON na resposta da IA.");
+}
 
 function render() {
     const app = document.getElementById('app');
@@ -17,22 +41,22 @@ function render() {
 
     if (state.stage === 'START') {
         app.innerHTML = `
-            <div class="fade-in bg-white p-8 rounded-3xl shadow-xl border-b-8 border-indigo-500">
-                <h1 class="text-4xl font-black text-center text-indigo-900 mb-8 uppercase tracking-tight">📚 Revisão 3.1 Lite</h1>
+            <div class="fade-in bg-white p-8 rounded-3xl shadow-xl border-b-8 border-indigo-500 text-center">
+                <h1 class="text-4xl font-black text-indigo-900 mb-8 uppercase tracking-tight">📚 Revisão 3.1</h1>
                 <div class="space-y-6">
                     <input type="text" id="nivel" placeholder="Nível (Ex: 9º ano)" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl outline-none focus:border-indigo-500 transition" value="${state.nivelEstudante}">
-                    <input type="text" id="assunto" placeholder="Assunto (Ex: Biologia)" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl outline-none focus:border-indigo-500 transition" value="${state.assuntoRevisao}">
+                    <input type="text" id="assunto" placeholder="Assunto (Ex: Revolução Francesa)" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl outline-none focus:border-indigo-500 transition" value="${state.assuntoRevisao}">
                     <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 text-lg">
-                        🚀 GERAR COM 3.1 FLASH LITE
+                        🚀 GERAR DESAFIO
                     </button>
                 </div>
             </div>`;
     } 
     else if (state.stage === 'LOADING') {
         app.innerHTML = `
-            <div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl">
+            <div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-100">
                 <div class="loader mb-6" style="border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-                <h2 class="text-xl font-bold text-gray-800 uppercase tracking-widest text-center">Acessando Modelo 3.1 Lite...</h2>
+                <h2 class="text-xl font-bold text-gray-800 uppercase text-center">Consultando Gemini 3.1 Flash Lite...</h2>
             </div>`;
     }
     else if (state.stage === 'QUIZ') {
@@ -56,10 +80,11 @@ function render() {
         app.innerHTML = `
             <div class="fade-in space-y-6 text-center">
                 <div class="bg-white p-8 rounded-3xl shadow-xl border-b-8 ${isCorrect ? 'border-green-500' : 'border-red-500'}">
-                    <h2 class="text-3xl font-black ${isCorrect ? 'text-green-600' : 'text-red-600'}">${isCorrect ? '✨ ACERTOU!' : '⚡ ERROU!'}</h2>
+                    <h2 class="text-3xl font-black ${isCorrect ? 'text-green-600' : 'text-red-600'}">${isCorrect ? '✨ ACERTOU!' : '⚡ QUASE LÁ!'}</h2>
                     <p class="mt-4 text-gray-700"><strong>Dica:</strong> ${q.explicacao}</p>
                 </div>
                 <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">PRÓXIMA QUESTÃO</button>
+                <button onclick="voltarInicio()" class="w-full text-gray-400 font-bold py-2 mt-4">🏠 VOLTAR AO INÍCIO</button>
             </div>`;
     }
 }
@@ -69,44 +94,48 @@ async function gerarQuestaoIA() {
         state.nivelEstudante = document.getElementById('nivel').value;
         state.assuntoRevisao = document.getElementById('assunto').value;
     }
-    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Preencha os campos!");
+    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Preencha tudo! 🤖");
 
     state.stage = 'LOADING';
     render();
 
-    const promptText = `Gere uma questão de múltipla escolha para o nível ${state.nivelEstudante} sobre o assunto ${state.assuntoRevisao}. Responda apenas o JSON puro, sem markdown, com as chaves: pergunta, alternativas (array com 4), correta (índice 0-3), explicacao e resumo.`;
+    // Prompt otimizado para retorno JSON
+    const prompt = `Atue como professor. Gere uma questão de múltipla escolha para o nível ${state.nivelEstudante} sobre o assunto ${state.assuntoRevisao}.
+    Você deve retornar OBRIGATORIAMENTE um bloco de código JSON como o exemplo abaixo:
+    \`\`\`json
+    {
+      "pergunta": "Texto da pergunta?",
+      "alternativas": ["opção 0", "opção 1", "opção 2", "opção 3"],
+      "correta": 0,
+      "explicacao": "Explicação curta."
+    }
+    \`\`\``;
 
     try {
-        // ID EXATO: gemini-3.1-flash-lite
+        // Usando o ID exato da sua cota e a rota v1beta
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${state.GEMINI_API_KEY}`;
         
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{
-                    role: "user", // O modelo 3.1 EXIGE a definição do role
-                    parts: [{ text: promptText }]
-                }]
+                contents: [{ parts: [{ text: prompt }] }]
             })
         });
 
         const data = await response.json();
 
         if (!response.ok) {
-            throw new Error(data.error?.message || "Erro desconhecido no modelo 3.1");
+            throw new Error(data.error?.message || "Erro de conexão com a API.");
         }
 
-        let texto = data.candidates[0].content.parts[0].text;
-        // Limpeza agressiva de markdown
-        texto = texto.replace(/```json|```/g, "").trim();
-        
-        state.currentQuestion = JSON.parse(texto);
+        const textoIA = data.candidates[0].content.parts[0].text;
+        state.currentQuestion = extractJsonBlock(textoIA);
         state.stage = 'QUIZ';
         
     } catch (error) {
-        console.error("Erro no Gemini 3.1:", error);
-        alert(`Erro no Modelo 3.1: ${error.message}`);
+        console.error("Erro Final:", error);
+        alert(`Falha na geração: ${error.message}`);
         state.stage = 'START';
     }
     render();
@@ -118,4 +147,18 @@ function selecionarResposta(index) {
     render();
 }
 
+function voltarInicio() {
+    state.stage = 'START';
+    render();
+}
+
 document.addEventListener('DOMContentLoaded', render);
+
+// Adicionando animações via CSS
+const style = document.createElement('style');
+style.innerHTML = `
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+`;
+document.head.appendChild(style);
