@@ -1,7 +1,7 @@
 // ===============================================
 // ARQUIVO: app.js
 // Projeto: CANTINHO DO ESTUDO
-// Versão: 4.0 - Edição de Deploy (Resiliência Total)
+// Versão: 6.0 - Edição Gemini 2.5 Flash Lite
 // ===============================================
 
 const state = {
@@ -9,13 +9,9 @@ const state = {
     nivelEstudante: '',
     assuntoRevisao: '',
     currentQuestion: null,
-    // Chave de API
     GEMINI_API_KEY: 'AIzaSyAyzWOfGynU44d8WfLnQaZXgzBK9LcMo-8' 
 };
 
-/**
- * Renderização da Interface
- */
 function render() {
     const app = document.getElementById('app');
     
@@ -26,20 +22,20 @@ function render() {
                 <div class="space-y-6">
                     <div>
                         <label class="block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide text-center">🎓 Nível do Estudante</label>
-                        <input type="text" id="nivel" placeholder="Ex: 9º ano" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.nivelEstudante}">
+                        <input type="text" id="nivel" placeholder="Ex: Ensino Médio" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.nivelEstudante}">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide text-center">📖 O que vamos revisar?</label>
-                        <input type="text" id="assunto" placeholder="Ex: Fotossíntese" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.assuntoRevisao}">
+                        <input type="text" id="assunto" placeholder="Ex: Genética" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.assuntoRevisao}">
                     </div>
                     <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 text-lg">
-                        🤖 LANÇAR DESAFIO
+                        🤖 DESAFIO 2.5 LITE
                     </button>
                 </div>
             </div>`;
     } 
     else if (state.stage === 'LOADING') {
-        app.innerHTML = `<div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-200"><div class="loader mb-6"></div><h2 class="text-xl font-bold text-gray-800 text-center uppercase tracking-tighter">O Robô está preparando sua questão...</h2></div>`;
+        app.innerHTML = `<div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-200"><div class="loader mb-6"></div><h2 class="text-xl font-bold text-gray-800 text-center uppercase">Acessando Gemini 2.5...</h2></div>`;
     }
     else if (state.stage === 'QUIZ') {
         const q = state.currentQuestion;
@@ -59,65 +55,55 @@ function render() {
             <div class="fade-in space-y-6">
                 <div class="bg-white p-8 rounded-3xl shadow-xl border-b-8 ${isCorrect ? 'border-green-500' : 'border-red-500'}">
                     <div class="flex items-center mb-6 text-3xl font-black ${isCorrect ? 'text-green-600' : 'text-red-600'}"><span>${isCorrect ? '✨' : '⚡'}</span> ${isCorrect ? 'Acertou!' : 'Quase lá!'}</div>
-                    <div class="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-100"><p class="text-xs font-black text-gray-400 uppercase mb-1">A resposta correta:</p><p class="text-lg font-bold text-gray-800">${q.alternativas[q.correta]}</p></div>
                     <p class="text-gray-700"><strong>Dica:</strong> ${q.explicacao}</p>
                 </div>
-                <div class="bg-indigo-600 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden"><h3 class="font-black text-indigo-200 mb-2 uppercase text-xs">📌 Resumo Pedagógico</h3><p class="text-white text-lg font-medium leading-relaxed">${q.resumo}</p></div>
-                <div class="flex gap-4"><button onclick="gerarQuestaoIA()" class="flex-1 bg-indigo-600 text-white font-black py-5 rounded-2xl hover:bg-indigo-700 transition-all">➕ NOVO DESAFIO</button><button onclick="voltarInicio()" class="flex-1 bg-white text-gray-400 font-bold py-5 rounded-2xl border-2 border-gray-100">🏠 INÍCIO</button></div>
+                <div class="bg-indigo-600 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+                    <h3 class="font-black text-indigo-200 mb-2 uppercase text-xs">📌 Resumo Pedagógico</h3>
+                    <p class="text-white text-lg font-medium">${q.resumo}</p>
+                </div>
+                <div class="flex gap-4">
+                    <button onclick="gerarQuestaoIA()" class="flex-1 bg-indigo-600 text-white font-black py-5 rounded-2xl hover:bg-indigo-700 transition-all">➕ NOVO</button>
+                    <button onclick="voltarInicio()" class="flex-1 bg-white text-gray-400 font-bold py-5 rounded-2xl border-2 border-gray-100">🏠 INÍCIO</button>
+                </div>
             </div>`;
     }
 }
 
-/**
- * Função principal de chamada à API
- */
 async function gerarQuestaoIA() {
     if (state.stage === 'START') {
         state.nivelEstudante = document.getElementById('nivel').value;
         state.assuntoRevisao = document.getElementById('assunto').value;
     }
-    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Preencha os campos! 🤖");
+    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Preencha tudo! 🤖");
 
     state.stage = 'LOADING';
     render();
 
-    const prompt = `Atue como um professor. Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda estritamente com um JSON: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
+    const prompt = `Atue como professor. Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para nível "${state.nivelEstudante}". Responda APENAS um JSON: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
 
     try {
-        // Usando o ID 'gemini-1.5-flash' que é o ID técnico para os modelos Flash na API v1beta
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.GEMINI_API_KEY}`;
-        
-        const response = await fetch(url, {
+        // ENDPOINT CONFIGURADO PARA O ID TÉCNICO DO GEMINI 2.5 FLASH LITE
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${state.GEMINI_API_KEY}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { 
-                    responseMimeType: "application/json",
-                    temperature: 0.7 
-                }
+                generationConfig: { responseMimeType: "application/json" }
             })
         });
 
         if (!response.ok) {
-            throw new Error(`Erro na API: Status ${response.status}`);
+            throw new Error(`Erro na API: ${response.status}`);
         }
 
         const data = await response.json();
+        const texto = data.candidates[0].content.parts[0].text;
+        state.currentQuestion = JSON.parse(texto);
+        state.stage = 'QUIZ';
         
-        if (data.candidates && data.candidates[0].content.parts[0].text) {
-            let jsonString = data.candidates[0].content.parts[0].text;
-            // Limpeza de segurança para garantir JSON puro
-            jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
-            
-            state.currentQuestion = JSON.parse(jsonString);
-            state.stage = 'QUIZ';
-        } else {
-            throw new Error("Resposta da IA veio vazia ou em formato incorreto.");
-        }
     } catch (error) {
-        console.error("Erro completo:", error);
-        alert(`Ocorreu um erro: ${error.message}\nVerifique se o modelo está ativo no seu Google Cloud.`);
+        console.error("Erro:", error);
+        alert("O modelo 2.5 Flash Lite retornou erro. Isso pode ser uma instabilidade na versão experimental ou erro de ID.");
         state.stage = 'START';
     }
     render();
@@ -134,5 +120,4 @@ function voltarInicio() {
     render();
 }
 
-// Inicia o app
 document.addEventListener('DOMContentLoaded', render);
