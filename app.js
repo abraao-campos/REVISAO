@@ -1,7 +1,6 @@
 // ===============================================
 // ARQUIVO: app.js
-// Projeto: CANTINHO DO ESTUDO
-// Versão: 11.0 - Estabilizada com v1 API
+// Versão: 13.0 - Sincronizada com Cotas Reais
 // ===============================================
 
 const state = {
@@ -9,48 +8,34 @@ const state = {
     nivelEstudante: '',
     assuntoRevisao: '',
     currentQuestion: null,
-    // COLE SUA CHAVE NOVA EXATAMENTE DENTRO DAS ASPAS ABAIXO
-    GEMINI_API_KEY: 'AIzaSyBNrS-c7SHpdifjQir-qFBydNfg3q5eNuQ'.trim() 
+    // Sua chave ativa do projeto REVISAO
+    GEMINI_API_KEY: 'AIzaSyBNrS-c7SHpdifjQir-qFBydNfg3q5eNuQ' 
 };
 
-/**
- * Renderiza a interface com base no estado atual
- */
 function render() {
     const app = document.getElementById('app');
     if (!app) return;
 
     if (state.stage === 'START') {
         app.innerHTML = `
-            <div class="fade-in bg-white p-8 rounded-3xl shadow-xl border-b-8 border-indigo-500">
-                <h1 class="text-4xl font-black text-center text-indigo-900 mb-8 tracking-tight uppercase">📚 Cantinho do Estudo</h1>
+            <div class="fade-in bg-white p-8 rounded-3xl shadow-xl border-b-8 border-indigo-500 text-center">
+                <h1 class="text-4xl font-black text-indigo-900 mb-8 uppercase tracking-tight">📚 Cantinho do Estudo</h1>
                 <div class="space-y-6">
-                    <div>
-                        <label class="block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide text-center">🎓 Nível do Estudante</label>
-                        <input type="text" id="nivel" placeholder="Ex: 9º ano" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.nivelEstudante}">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-bold text-gray-600 mb-2 uppercase tracking-wide text-center">📖 O que vamos revisar?</label>
-                        <input type="text" id="assunto" placeholder="Ex: Fotossíntese" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:border-indigo-500 outline-none transition" value="${state.assuntoRevisao}">
-                    </div>
-                    <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3 text-lg">
-                        🚀 LANÇAR DESAFIO
+                    <input type="text" id="nivel" placeholder="Nível (Ex: 9º ano)" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl outline-none focus:border-indigo-500 transition" value="${state.nivelEstudante}">
+                    <input type="text" id="assunto" placeholder="Assunto (Ex: Revolução Francesa)" class="w-full p-4 border-2 border-gray-100 bg-gray-50 rounded-2xl outline-none focus:border-indigo-500 transition" value="${state.assuntoRevisao}">
+                    <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-5 rounded-2xl shadow-lg transition-all active:scale-95 text-lg">
+                        🚀 GERAR DESAFIO
                     </button>
                 </div>
             </div>`;
     } 
     else if (state.stage === 'LOADING') {
-        app.innerHTML = `
-            <div class="fade-in flex flex-col items-center justify-center p-12 bg-white rounded-3xl shadow-xl border-b-8 border-gray-200">
-                <div class="loader mb-6" style="border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
-                <h2 class="text-xl font-bold text-gray-800 text-center uppercase">O Robô está pensando...</h2>
-            </div>`;
+        app.innerHTML = `<div class="p-12 text-center bg-white rounded-3xl shadow-xl border-b-8 border-gray-200"><div class="loader mb-6" style="border: 4px solid #f3f3f3; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div><h2 class="text-xl font-bold text-gray-800 uppercase">Consultando Gemini ${state.modelVersion || ''}...</h2></div>`;
     }
     else if (state.stage === 'QUIZ') {
         const q = state.currentQuestion;
         app.innerHTML = `
             <div class="fade-in bg-white p-8 rounded-3xl shadow-xl border-b-8 border-indigo-400">
-                <div class="flex justify-between items-center mb-6"><span class="bg-indigo-100 text-indigo-700 text-xs font-black px-4 py-1.5 rounded-full uppercase">📝 ${state.assuntoRevisao}</span></div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-8 leading-snug">${q.pergunta}</h2>
                 <div class="grid gap-4">
                     ${q.alternativas.map((alt, i) => `
@@ -66,71 +51,66 @@ function render() {
         const q = state.currentQuestion;
         const isCorrect = q.userAnswer === q.correta;
         app.innerHTML = `
-            <div class="fade-in space-y-6">
+            <div class="fade-in space-y-6 text-center">
                 <div class="bg-white p-8 rounded-3xl shadow-xl border-b-8 ${isCorrect ? 'border-green-500' : 'border-red-500'}">
-                    <div class="flex items-center mb-6 text-3xl font-black ${isCorrect ? 'text-green-600' : 'text-red-600'}">
-                        <span>${isCorrect ? '✨' : '⚡'}</span> ${isCorrect ? 'Acertou!' : 'Quase lá!'}
-                    </div>
-                    <p class="text-gray-700"><strong>Dica:</strong> ${q.explicacao}</p>
+                    <h2 class="text-3xl font-black ${isCorrect ? 'text-green-600' : 'text-red-600'}">${isCorrect ? '✨ ACERTOU!' : '⚡ QUASE LÁ!'}</h2>
+                    <p class="mt-4 text-gray-700"><strong>Dica:</strong> ${q.explicacao}</p>
                 </div>
-                <div class="bg-indigo-600 text-white p-8 rounded-3xl shadow-xl">
-                    <h3 class="font-black text-indigo-200 mb-2 uppercase text-xs">📌 Resumo Pedagógico</h3>
-                    <p class="text-white text-lg font-medium leading-relaxed">${q.resumo}</p>
-                </div>
-                <div class="flex gap-4">
-                    <button onclick="gerarQuestaoIA()" class="flex-1 bg-indigo-600 text-white font-black py-5 rounded-2xl hover:bg-indigo-700 transition-all">➕ NOVO</button>
-                    <button onclick="voltarInicio()" class="flex-1 bg-white text-gray-400 font-bold py-5 rounded-2xl border-2 border-gray-100">🏠 INÍCIO</button>
-                </div>
+                <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg">PRÓXIMA QUESTÃO</button>
             </div>`;
     }
 }
 
-/**
- * Faz a chamada para a API do Google Gemini
- */
+async function fetchFromGemini(modelId, prompt) {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${state.GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        })
+    });
+    return response;
+}
+
 async function gerarQuestaoIA() {
     if (state.stage === 'START') {
         state.nivelEstudante = document.getElementById('nivel').value;
         state.assuntoRevisao = document.getElementById('assunto').value;
     }
-    
-    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Por favor, preencha o nível e o assunto! 🤖");
+    if (!state.nivelEstudante || !state.assuntoRevisao) return alert("Preencha tudo! 🤖");
 
     state.stage = 'LOADING';
     render();
 
-    const prompt = `Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda APENAS um JSON puro (sem markdown) seguindo este modelo: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
+    const prompt = `Atue como professor. Gere uma questão de múltipla escolha sobre "${state.assuntoRevisao}" para o nível "${state.nivelEstudante}". Responda APENAS um JSON: {"pergunta":"...","alternativas":["...","...","...","..."],"correta":0,"explicacao":"...","resumo":"..."}`;
+
+    // Lista de modelos que aparecem com cota na sua imagem
+    const modelosDisponiveis = ['gemini-3.1-flash-lite', 'gemini-2.5-flash-lite', 'gemini-3-flash'];
 
     try {
-        // Usando o endpoint v1 estável para evitar erros de prévia
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${state.GEMINI_API_KEY}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }]
-            })
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            throw new Error(data.error?.message || "Ocorreu um erro na API.");
+        let success = false;
+        for (const modelId of modelosDisponiveis) {
+            state.modelVersion = modelId;
+            const response = await fetchFromGemini(modelId, prompt);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const textoRaw = data.candidates[0].content.parts[0].text;
+                state.currentQuestion = JSON.parse(textoRaw);
+                state.stage = 'QUIZ';
+                success = true;
+                break; 
+            }
         }
 
-        if (data.candidates && data.candidates[0].content.parts[0].text) {
-            let jsonString = data.candidates[0].content.parts[0].text;
-            // Limpa o texto caso a IA inclua blocos de código markdown
-            jsonString = jsonString.replace(/```json/g, "").replace(/```/g, "").trim();
-            
-            state.currentQuestion = JSON.parse(jsonString);
-            state.stage = 'QUIZ';
-        } else {
-            throw new Error("A IA não gerou uma resposta válida.");
+        if (!success) {
+            throw new Error("Nenhum dos modelos da sua cota respondeu. Verifique se a chave está ativa no Google Cloud.");
         }
         
     } catch (error) {
-        console.error("Erro completo:", error);
-        alert(`Erro técnico: ${error.message}\n\nVerifique se sua chave está ativa no Google AI Studio.`);
+        console.error("Erro Final:", error);
+        alert(`Erro: ${error.message}`);
         state.stage = 'START';
     }
     render();
@@ -142,19 +122,4 @@ function selecionarResposta(index) {
     render();
 }
 
-function voltarInicio() {
-    state.stage = 'START';
-    render();
-}
-
-// Inicia o app ao carregar o DOM
 document.addEventListener('DOMContentLoaded', render);
-
-// Injeta estilos extras para o loader
-const styleTag = document.createElement('style');
-styleTag.innerHTML = `
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .fade-in { animation: fadeIn 0.4s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-`;
-document.head.appendChild(styleTag);
