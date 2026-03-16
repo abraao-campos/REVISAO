@@ -1,10 +1,11 @@
 // app.js
 const state = { 
     stage: 'START', 
-    nivelEnsino: '', // Fundamental ou Médio
+    nivelEnsino: '', 
     anoSelecionado: '', 
     assuntoRevisao: '', 
-    currentQuestion: null 
+    currentQuestion: null,
+    historicoQuestoes: [] // Guarda as perguntas já feitas nesta sessão
 };
 
 function render() {
@@ -19,7 +20,7 @@ function render() {
                 <div class="mb-6">
                     <label class="block text-sm font-bold text-gray-600 mb-3 ml-1">🎓 Nível de Experiência</label>
                     <div class="flex gap-2">
-                        <button onclick="setNivel('FUNDAMENTAL')" class="flex-1 py-3 px-2 rounded-xl border-2 font-bold transition-all ${state.nivelEnsino === 'FUNDAMENTAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 border-gray-200 text-gray-500'}">ENSINO FUNDAMENTAL</button>
+                        <button onclick="setNivel('FUNDAMENTAL')" class="flex-1 py-3 px-2 rounded-xl border-2 font-bold transition-all ${state.nivelEnsino === 'FUNDAMENTAL' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 border-gray-200 text-gray-500'}">FUNDAMENTAL</button>
                         <button onclick="setNivel('MEDIO')" class="flex-1 py-3 px-2 rounded-xl border-2 font-bold transition-all ${state.nivelEnsino === 'MEDIO' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-gray-50 border-gray-200 text-gray-500'}">ENSINO MÉDIO</button>
                     </div>
                 </div>
@@ -36,17 +37,18 @@ function render() {
 
                 <div class="mb-8">
                     <label class="block text-sm font-bold text-gray-600 mb-3 ml-1">📝 O que vamos estudar?</label>
-                    <input type="text" id="assunto" placeholder="Ex: Fotossíntese, Revolução Francesa..." 
+                    <input type="text" id="assunto" placeholder="Ex: História nível ENEM, Canguru de Matemática..." 
                         class="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-2xl outline-none focus:border-indigo-500 font-medium">
                 </div>
 
-                <button onclick="gerarQuestaoIA()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">🚀 GERAR DESAFIO</button>
+                <button onclick="iniciarGeracao()" class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg hover:bg-indigo-700 active:scale-95 transition-all uppercase">Gerar Desafio</button>
             </div>`;
     } else if (state.stage === 'LOADING') {
         app.innerHTML = `
             <div class="p-12 text-center bg-white rounded-3xl shadow-xl max-w-md mx-auto">
                 <div class="loader-circle mx-auto mb-6"></div>
                 <h2 class="font-black text-indigo-900 text-xl animate-pulse">Gerando Desafios...</h2>
+                <p class="text-gray-500 text-sm mt-2 italic">A IA está pesquisando o melhor conteúdo para você.</p>
             </div>`;
     } else if (state.stage === 'QUIZ') {
         const q = state.currentQuestion;
@@ -84,7 +86,11 @@ function render() {
                         <pre class="whitespace-pre-wrap font-mono text-sm text-indigo-900 leading-tight">${q.esquema_mental}</pre>
                     </div>
                 </div>
-                <button onclick="state.stage = 'START'; render();" class="w-full bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg">NOVA QUESTÃO</button>
+
+                <div class="flex gap-4">
+                    <button onclick="voltarAoInicio()" class="flex-1 bg-gray-200 text-gray-700 font-black py-5 rounded-2xl shadow-md hover:bg-gray-300 transition-all">INÍCIO</button>
+                    <button onclick="gerarQuestaoIA()" class="flex-[2] bg-indigo-600 text-white font-black py-5 rounded-2xl shadow-lg hover:bg-indigo-700 transition-all">PRÓXIMA QUESTÃO ➡</button>
+                </div>
             </div>`;
     }
 }
@@ -99,17 +105,24 @@ function renderOpcoesAnos() {
     const anos = state.nivelEnsino === 'FUNDAMENTAL' 
         ? ['1º ano', '2º ano', '3º ano', '4º ano', '5º ano', '6º ano', '7º ano', '8º ano', '9º ano']
         : ['1º ano EM', '2º ano EM', '3º ano EM'];
-    
     return anos.map(ano => `<option value="${ano}" ${state.anoSelecionado === ano ? 'selected' : ''}>${ano}</option>`).join('');
 }
 
-async function gerarQuestaoIA() {
+function voltarAoInicio() {
+    state.stage = 'START';
+    state.historicoQuestoes = []; // Reseta o histórico ao voltar pro início
+    render();
+}
+
+function iniciarGeracao() {
     state.assuntoRevisao = document.getElementById('assunto').value;
-    
     if (!state.anoSelecionado || !state.assuntoRevisao) {
         return alert("Por favor, selecione o ano e digite o assunto!");
     }
-    
+    gerarQuestaoIA();
+}
+
+async function gerarQuestaoIA() {
     state.stage = 'LOADING';
     render();
 
@@ -119,7 +132,8 @@ async function gerarQuestaoIA() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 nivel: `${state.nivelEnsino} - ${state.anoSelecionado}`, 
-                assunto: state.assuntoRevisao 
+                assunto: state.assuntoRevisao,
+                historico: state.historicoQuestoes // Envia o histórico para evitar repetição
             })
         });
 
@@ -127,6 +141,7 @@ async function gerarQuestaoIA() {
         if (!response.ok) throw new Error(data.error || "Erro no servidor");
 
         state.currentQuestion = data;
+        state.historicoQuestoes.push(data.pergunta); // Salva a pergunta atual no histórico
         state.stage = 'QUIZ';
     } catch (error) {
         alert("Erro: " + error.message);
@@ -142,13 +157,3 @@ function selecionarResposta(i) {
 }
 
 document.addEventListener('DOMContentLoaded', render);
-
-// CSS para o Loader e Animações
-const style = document.createElement('style');
-style.innerHTML = `
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .loader-circle { border: 5px solid #f3f3f3; border-top: 5px solid #4f46e5; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; }
-    .animate-fade-in { animation: fadeIn 0.3s ease-in; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-`;
-document.head.appendChild(style);
